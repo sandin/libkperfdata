@@ -205,13 +205,13 @@ typedef struct {
         unsigned long long kpthi_dq_addr;               // +0x60, size=0x08
     } kperf_thread_info;
     struct kp_ucallstack ucallstack;                    // +0x68    size=0x808
-    //    unsigned int flags;                           // +0x68, size=0x04
-    //    unsigned int nframes;                         // +0x6c, size=0x04
-    //    unsigned long long frames[256];               // +0x70, size=0x800
+    //    unsigned int flags;                           // +0x68,   size=0x04
+    //    unsigned int nframes;                         // +0x6c,   size=0x04
+    //    unsigned long long frames[256];               // +0x70,   size=0x800
     struct kpdecode_callstack kcallstack;               // +0x870,  size=0x808
-    //    unsigned int flags;                           // +0x870, size=0x04, 
-    //    unsigned int nframes;                         // +0x874, size=0x04, 
-    //    unsigned long long frames[256];               // +0x878, size=0x800, 
+    //    unsigned int flags;                           // +0x870,  size=0x04
+    //    unsigned int nframes;                         // +0x874,  size=0x04 
+    //    unsigned long long frames[256];               // +0x878,  size=0x800 
     struct kpdecode_pmc pmc_counters;                   // +0x1078, size=0x108
     //    int counterc;                                 // +0x1078, size=0x04
     //    padding                                       // +0x107c, size=0x04
