@@ -96,7 +96,7 @@ typedef struct {
     uint64_t unknown_48;            // +0x48(72), size=0x08, +0x48 = 0x18? current_buffer_ptr?
     uint64_t* cur_kd_buf_ptr;       // +0x50(80), size=0x08, pointer to the current kd_buf
     uint64_t* cur_kd_threadmap_ptr; // +0x58(88), size=0x08, pointer to the current kd_threadmap
-    uint64_t* end_kd_threadmap_ptr; // +0x60(96), size=0x08, kd_threadmap end pointer(pointer to the end of kd_threadmap)
+    uint64_t* end_kd_threadmap_ptr; // +0x60(96), size=0x08, pointer to the end of kd_threadmap
     struct {
         uint64_t timestamp;         // +0x68(104), size=0x08
         uint64_t arg1;              // +0x70(112), size=0x08
@@ -107,16 +107,16 @@ typedef struct {
         uint64_t debugid;           // +0x98(152), size=0x08
     } kd_buf; 
     // ...
-    uint64_t threadmap_decoded;     // +0xA8(168), size=0x08, value=0/1, , whether the threadmap has been decoded(1) or not(0)
-    uint64_t kpdeocde_record_head;  // +0xB0(176), size=0x08, pointer to the first kpdecode_record
-    uint64_t kpdecode_record_tail;  // +0xB8(184), size=0x08, pointer to the last  kpdecode_record
-    uint32_t thread_count;          // +0xC0(192), size=0x04, RAW_header.thread_count
-    uint32_t kpdecode_record_count; // +0xC4(196), size=0x04, size of kpdecode_records
-    uint64_t unknown_c8[64];        // +0x0C8, size=0x200, thread info sched map
-    uint64_t unknown_2c8[64];       // +0x2C8, size=0x200, cpuid string1 map, global string(TRACE_STRING_GLOBAL)?
-    uint64_t unknown_4c8[64];       // +0x4C8, size=0x200, cpuid string2 map
-    uint64_t unknown_6c8[64];       // +0x6C8, size=0x200, cpuid string3 map, thread name?
-    uint64_t unknown_8c8[64];       // +0x8C8, size=0x200, unknown bitmap, record+0x1240, timestamp?
+    uint64_t threadmap_decoded;     // +0xA8(168),   size=0x08,  value=0/1, , whether the threadmap has been decoded(1) or not(0)
+    uint64_t kpdeocde_record_head;  // +0xB0(176),   size=0x08,  pointer to the first kpdecode_record
+    uint64_t kpdecode_record_tail;  // +0xB8(184),   size=0x08,  pointer to the last  kpdecode_record
+    uint32_t thread_count;          // +0xC0(192),   size=0x04,  RAW_header.thread_count
+    uint32_t kpdecode_record_count; // +0xC4(196),   size=0x04,  size of kpdecode_records
+    uint64_t unknown_c8[64];        // +0x0C8(200),  size=0x200, thread info sched map
+    uint64_t unknown_2c8[64];       // +0x2C8(712),  size=0x200, cpuid string1 map, global string(TRACE_STRING_GLOBAL)?
+    uint64_t unknown_4c8[64];       // +0x4C8(1224), size=0x200, cpuid string2 map
+    uint64_t unknown_6c8[64];       // +0x6C8(1736), size=0x200, cpuid string3 map, thread name?
+    uint64_t unknown_8c8[64];       // +0x8C8(2248), size=0x200, unknown bitmap, record+0x1240, timestamp?
     // ...
     // ...
     uint32_t unknown_cc8;           // +0xCC8(3272), size=0x04?, the max number of ?
@@ -214,7 +214,7 @@ typedef struct {
     //    unsigned long long frames[256];               // +0x878, size=0x800, 
     struct kpdecode_pmc pmc_counters;                   // +0x1078, size=0x108
     //    int counterc;                                 // +0x1078, size=0x04
-    //    // padding                                    // +0x107c, size=0x04
+    //    padding                                       // +0x107c, size=0x04
     //    unsigned long long counterv[32];              // +0x1080, size=0x100
     struct {
         unsigned int running;                           // +0x1180, size=0x04
@@ -337,7 +337,7 @@ typedef struct {
         unsigned int unknown_field3;                    // +0x1490, size=0x04, callstack_hdr_arg4?
      } xcallstack_hdr; 
 
-   // +0x1498, size=?, record_ready  0: ready，1: not ready
+   // +0x1498, size=?, record_ready  0: not ready，1: ready
 
    // +0x14A0, size=0x08, *next
    // +0x14A8, size=0x04, current_kernel_callstack_count
