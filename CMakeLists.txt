@@ -5,6 +5,7 @@ project(libkperfdata VERSION 0.1.0)
 set(CMAKE_C_STANDARD 99)
 
 # library: libkperfdata
+add_definitions(-DKPERFDATA_LIBRARY_IMPL)
 include_directories(${PROJECT_SOURCE_DIR}/include)
 set(KPERFDATA_HEADERS
   ${PROJECT_SOURCE_DIR}/include/kperfdata/kperfdata.h
@@ -15,6 +16,7 @@ set(KPERFDATA_SOURCES
 add_library(${PROJECT_NAME} ${KPERFDATA_HEADERS} ${KPERFDATA_SOURCES})
 
 # test
+set(BUILD_TESTING true)
 if(BUILD_TESTING)
   enable_language(CXX)
 
