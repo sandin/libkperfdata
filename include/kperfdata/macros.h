@@ -58,4 +58,16 @@
 #define KPERFDATA_PAGE_MASK (KPERFDATA_PAGE_SIZE - 1)
 #define KPERFDATA_PAGE_ALIGN(s) (((s) + KPERFDATA_PAGE_MASK) & ~(KPERFDATA_PAGE_MASK))
 
+#define KPERFDATA_STATE_HEADER_NOT_DECODED 0
+#define KPERFDATA_STATE_32_BIT_HEADER 1
+#define KPERFDATA_STATE_64_BIT_HEADER 2
+
+#define KPERFDATA_DEBUGID(class, subclass, code, func)                        \
+  (((unsigned)((class) & 0xff) << 24) | ((unsigned)((subclass)&0xff) << 16) | \
+   ((unsigned)((code)&0x3fff) << 2) | func)
+
+#define KPERFDATA_TIMESTAMP_MASK 0x00ffffffffffffffULL
+#define KPERFDATA_CPU_MASK 0xff00000000000000ULL
+#define KPERFDATA_CPU_SHIFT 56
+
 #endif  // KPERFDATA_INCLUDE_MACROS_H_

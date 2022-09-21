@@ -59,40 +59,52 @@ typedef struct {
 } RAW_header_v2;                                      // size=0x120
 
 /**
- * threadmap 
+ * threadmap (32-bit)
  */
-typedef struct {                                      // 32-bit                    64-bit
-#if defined(__arm64__)
-  uint64_t thread;                                    // -                         +0x00, size=0x08, the thread ID
-#else
-  uintptr_t thread;                                   // +0x00, size=0x04          -
-#endif
-  int valid;                                          // +0x04, size=0x04,         +0x08, size=0x04, 0: invalid, 1: kernel_task, otherwise the PID
-  char command[20];                                   // +0x08, size=0x14,         +0x0c, size=0x14, process name
-} kd_threadmap;                                       // size=0x1c, align=0x04     size=0x20, align=0x08
+typedef struct {
+  uint32_t thread;                                    // +0x00, size=0x04
+  int valid;                                          // +0x04, size=0x04, 0: invalid, 1: kernel_task, otherwise the PID
+  char command[20];                                   // +0x08, size=0x14, process name
+} kd_threadmap_32;                                    // size=0x1c, align=0x04
 
 /**
- * kd_buf(kevent) 
+ * threadmap (64-bit)
  */
-#if defined(__arm64__)
-typedef uint64_t kd_buf_argtype;
-#else
-typedef uintptr_t kd_buf_argtype;
-#endif
+typedef struct {
+  uint64_t thread;                                    // +0x00, size=0x08, the thread ID
+  int valid;                                          // +0x08, size=0x04, 0: invalid, 1: kernel_task, otherwise the PID
+  char command[20];                                   // +0x0c, size=0x14, process name
+} kd_threadmap_64;                                    // size=0x20, align=0x08
 
-typedef struct {                                      // 64-bit             32-bit
-  uint64_t timestamp;                                 // +0x00, size=0x08   +0x00, size=0x08
-  kd_buf_argtype arg1;                                // +0x08, size=0x08   +0x08, size=0x04
-  kd_buf_argtype arg2;                                // +0x10, size=0x08   +0x0c, size=0x04
-  kd_buf_argtype arg3;                                // +0x18, size=0x08   +0x10, size=0x04
-  kd_buf_argtype arg4;                                // +0x20, size=0x08   +0x14, size=0x04
-  kd_buf_argtype arg5; /* the thread ID */            // +0x28, size=0x08   +0x18, size=0x04
-  uint32_t debugid;                                   // +0x30, size=0x04   +0x1c, size=0x04
-#if defined(__LP64__) || defined(__arm64__)
-  uint32_t cpuid;                                     // +0x34, size=0x04   -
-  kd_buf_argtype unused;                              // +0x38, size=0x08   -
-#endif
-} kd_buf;                                             // size=0x40(64)      size=0x20(32)
+/**
+ * kd_buf (32-bit)
+ */
+typedef struct {
+  uint64_t timestamp;                                 // +0x00, size=0x08
+  uint32_t arg1;                                      // +0x08, size=0x04
+  uint32_t arg2;                                      // +0x0c, size=0x04
+  uint32_t arg3;                                      // +0x10, size=0x04
+  uint32_t arg4;                                      // +0x14, size=0x04
+  uint32_t arg5; /* the thread ID */                  // +0x18, size=0x04
+  uint32_t debugid;                                   // +0x1c, size=0x04
+} kd_buf_32;                                          // size=0x20(32)
+
+/**
+ * kd_buf (64-bit)
+ */
+typedef struct {
+  uint64_t timestamp;                                 // +0x00, size=0x08
+  uint64_t arg1;                                      // +0x08, size=0x08
+  uint64_t arg2;                                      // +0x10, size=0x08
+  uint64_t arg3;                                      // +0x18, size=0x08
+  uint64_t arg4;                                      // +0x20, size=0x08
+  uint64_t arg5; /* the thread ID */                  // +0x28, size=0x08
+  uint32_t debugid;                                   // +0x30, size=0x04
+  uint32_t cpuid;                                     // +0x34, size=0x04
+  uint64_t unused;                                    // +0x38, size=0x08
+} kd_buf_64;                                          // size=0x40(64)
+
+typedef kd_buf_64 kd_buf;
 
 /**
  * kprecord
@@ -333,25 +345,25 @@ typedef struct {
   const char* buffer;                                 // +0x18(24), size=0x08, the 2nd argument of kpdecode_cursor_setchunk()
   uint64_t buffer_size;                               // +0x20(32), size=0x08, the 3rd argument of kpdecode_cursor_setchunk()
   uint64_t unknown_28;                                // +0x28(40), size=0x08, offset?
-  uint64_t unknown_30;                                // +0x30(48), size=0x08, buffer_size?
+  uint64_t buffer_size1;                              // +0x30(48), size=0x08, buffer_size
   // ...
   uint32_t header_decoded;                            // +0x40(64), size=0x04, value=0/1, whether the header has been decoded(1) or not(0)
   // ...
-  uint64_t unknown_48;                                // +0x48(72), size=0x08, +0x48 = 0x18? current_buffer_ptr?
+  char** buffer_ptr;                                  // +0x48(72), size=0x08, pointer to the buffer pointer
   char* cur_kd_buf_ptr;                               // +0x50(80), size=0x08, pointer to the current kd_buf
   char* cur_kd_threadmap_ptr;                         // +0x58(88), size=0x08, pointer to the current kd_threadmap
   char* end_kd_threadmap_ptr;                         // +0x60(96), size=0x08, pointer to the end of kd_threadmap
-  struct {
-      uint64_t timestamp;                             // +0x68(104), size=0x08
-      uint64_t arg1;                                  // +0x70(112), size=0x08
-      uint64_t arg2;                                  // +0x78(120), size=0x08
-      uint64_t arg3;                                  // +0x80(128), size=0x08
-      uint64_t arg4;                                  // +0x88(136), size=0x08
-      uint64_t tid;                                   // +0x90(144), size=0x08, arg5(tid)
-      uint32_t debugid;                               // +0x98(152), size=0x04
-      uint32_t cpuid;                                 // +0x9c(156), size=0x04
-  } kd_buf;
-  // ...
+  kd_buf_64 kd_buf; // {
+  //  uint64_t timestamp;                             // +0x68(104), size=0x08
+  //  uint64_t arg1;                                  // +0x70(112), size=0x08
+  //  uint64_t arg2;                                  // +0x78(120), size=0x08
+  //  uint64_t arg3;                                  // +0x80(128), size=0x08
+  //  uint64_t arg4;                                  // +0x88(136), size=0x08
+  //  uint64_t tid;                                   // +0x90(144), size=0x08, arg5(tid)
+  //  uint32_t debugid;                               // +0x98(152), size=0x04
+  //  uint32_t cpuid;                                 // +0x9c(156), size=0x04
+  //  uint64_t unused;                                // +0xa0(160), size=0x08
+  //}
   uint64_t threadmap_decoded;                         // +0xA8(168),   size=0x08,  value=0/1, , whether the threadmap has been decoded(1) or not(0)
   kpdecode_record* kpdeocde_record_head;              // +0xB0(176),   size=0x08,  pointer to the first kpdecode_record
   kpdecode_record* kpdecode_record_tail;              // +0xB8(184),   size=0x08,  pointer to the last  kpdecode_record
