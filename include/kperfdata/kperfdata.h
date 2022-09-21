@@ -258,7 +258,7 @@ typedef struct {
       unsigned long long *unknown_field2;             // +0x1238, size=0x08, malloc(8 * arg1), used by SubClass: 153
     } unknown_field19;
   struct { 
-      unsigned long long unknown_field1;              // +0x1240, size=0x08, cursor+0x8C8 cpuid unknown map?
+      unsigned long long unknown_field1;              // +0x1240, size=0x08, from cursor+0x8C8, last timestamp pre cpu?
   } unknown_field20;
   struct {
       unsigned int eventid;                           // +0x1248, size=0x04
@@ -324,7 +324,7 @@ typedef struct {
 
   uint32_t ready;                                     // +0x1498, size=?, whether this record is ready(1) or not(0)
   // ...
-  void* next;                                         // +0x14A0, size=0x08, the next item of linked list
+  struct kpdecode_record* next;                       // +0x14A0, size=0x08, the next item of linked list
   // +0x14A8, size=0x04, current_kernel_callstack_count
   // +0x14AC, size=0x04, current_user_callstack_count
   // +0x14B0, pmc_counters_count
@@ -369,14 +369,15 @@ typedef struct {
   kpdecode_record* kpdecode_record_tail;              // +0xB8(184),   size=0x08,  pointer to the last  kpdecode_record
   uint32_t kevent_count;                              // +0xC0(192),   size=0x04,  count of the kevents
   uint32_t kpdecode_record_count;                     // +0xC4(196),   size=0x04,  size of kpdecode_records
-  uint64_t unknown_c8[64];                            // +0x0C8(200),  size=0x200, thread info sched map
-  uint64_t unknown_2c8[64];                           // +0x2C8(712),  size=0x200, cpuid string1 map, global string(TRACE_STRING_GLOBAL)?
-  uint64_t unknown_4c8[64];                           // +0x4C8(1224), size=0x200, cpuid string2 map
+  kpdecode_record* unknown_c8[64];                    // +0xC8(200),   size=0x200, last_record_pre_cpu? (thread info sched map?)
+  kpdecode_record* unknown_2c8[64];                   // +0x2C8(712),  size=0x200, last_record_pre_cpu? (cpuid string1 map, global string(TRACE_STRING_GLOBAL)?)
+  kpdecode_record* unknown_4c8[64];                   // +0x4C8(1224), size=0x200, cpuid string2 map
   uint64_t unknown_6c8[64];                           // +0x6C8(1736), size=0x200, cpuid string3 map, thread name?
-  uint64_t unknown_8c8[64];                           // +0x8C8(2248), size=0x200, unknown bitmap, record+0x1240, timestamp?
+  uint64_t unknown_8c8[64];                           // +0x8C8(2248), size=0x200, last_timestamp_pre_cpu?
+  uint64_t unknown_ac8[64];                           // +0xAC8(2760), size=0x200, kevent_count_pre_cpu?
   // ...
   // ...
-  uint32_t unknown_cc8;                               // +0xCC8(3272), size=0x04?, the max number of ?
+  uint32_t unknown_cc8;                               // +0xCC8(3272), size=0x04?, the max number of kevent_count_pre_cpu?
   // ...
   uint32_t unknown_option;                            // +0xCDC(3292), size=0x04, value=0/1
 } kpdecode_cursor;                                    // sizeof=0xce0(3296)
@@ -442,7 +443,8 @@ KPERFDATA_EXPORT long kpdecode_cursor_set_option(kpdecode_cursor* cursor, int ar
  * @param record the next record
  * @return ret: 0 for success, otherwise for failure
  */
-KPERFDATA_EXPORT long kpdecode_cursor_next_record(kpdecode_cursor* cursor, kpdecode_record* record);
+KPERFDATA_EXPORT long kpdecode_cursor_next_record(kpdecode_cursor* cursor,
+                                                  kpdecode_record** next_record);
 
 /**
  * Release the record

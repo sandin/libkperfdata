@@ -53,7 +53,7 @@ TEST(kperfdata, Decode) {
   int record_count = 0;
   while (true) {
     kpdecode_record* record = NULL;
-    kpdecode_cursor_next_record(cursor, record);
+    kpdecode_cursor_next_record(cursor, &record);
     if (record == NULL) {
       break;
     }

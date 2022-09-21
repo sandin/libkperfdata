@@ -14,9 +14,9 @@
 
 #include "kperfdata/kperfdata.h"
 
-#include <assert.h>   // assert
+#include <assert.h>  // assert
 #include <stdbool.h>  // bool
-#include <stdlib.h>   // malloc
+#include <stdlib.h>  // malloc
 
 KPERFDATA_START_CPP_NAMESPACE
 
@@ -105,7 +105,7 @@ static bool record_ready(kpdecode_cursor* cursor) {
     return false;
   } else {
     first_record->flags |= 0x8000000000000000;
-    first_record->ready = 1;
+    first_record->ready = true;
     uint32_t cpuid = first_record->cpuid;
     cursor->unknown_c8[cpuid] = 0;
     cursor->unknown_2c8[cpuid] = 0;
@@ -116,7 +116,7 @@ static bool record_ready(kpdecode_cursor* cursor) {
 
 static kd_buf* kpdecode_cursor_next_kevent(kpdecode_cursor* cursor) {
   assert(sizeof(RAW_header_v1) == KPERFDATA_SIZEOF_RAW_HEADER_V1);
-  assert(sizeof(RAW_header_v2) == KPERFDATA_SIZEOF_RAW_HEADER_V2);
+  assert(sizeof(RAW_header_v2) + 0x100 == KPERFDATA_SIZEOF_RAW_HEADER_V2);
   assert(sizeof(kd_threadmap_32) == KPERFDATA_SIZEOF_KD_THREADMAP_32);
   assert(sizeof(kd_threadmap_64) == KPERFDATA_SIZEOF_KD_THREADMAP_64);
   assert(sizeof(kd_buf_32) == KPERFDATA_SIZEOF_KD_BUF_32);
@@ -186,8 +186,8 @@ static kd_buf* kpdecode_cursor_next_kevent(kpdecode_cursor* cursor) {
         cursor->cur_kd_threadmap_ptr = threadmap_ptr;
         cursor->end_kd_threadmap_ptr = threadmap_ptr + threadmap_size;
       }  // endif (state > 0)
-    }    // endif (size >= KPERFDATA_SIZEOF_RAW_HEADER_V2)
-  }      // endif (cursor->state == 0)
+    }  // endif (size >= KPERFDATA_SIZEOF_RAW_HEADER_V2)
+  }  // endif (cursor->state == 0)
 
   // The header has already been decoded
   if (!cursor->header_decoded) {
@@ -240,11 +240,10 @@ static kd_buf* kpdecode_cursor_next_kevent(kpdecode_cursor* cursor) {
         kevent->arg2 = *(uint64_t*)(command + 8);
         kevent->arg3 = *(uint64_t*)(command + 16);
         return kevent;  // return this threadmap as a kevent
-      }                 // else (invalid) continue
-      cursor->cur_kd_threadmap_ptr =
-          cur_threadmap_ptr +
-          cursor->size_of_kd_threadmap;  // step to the next item in the threadmap
-    }                                    // end while(true)
+      }  // else (invalid):
+      // step to the next item in the threadmap
+      cursor->cur_kd_threadmap_ptr = cur_threadmap_ptr + cursor->size_of_kd_threadmap;
+    }  // end of while
   }  // endif (!cursor->threadmap_decoded && cursor->cur_kd_threadmap_ptr != NULL)
 
   // decode kd_buf
@@ -252,9 +251,9 @@ static kd_buf* kpdecode_cursor_next_kevent(kpdecode_cursor* cursor) {
   if (cur_kd_buf_ptr != NULL) {
     kd_buf* kevent;
     if (is32bit) {
+      // on 32-bit, we need copy the data from kd_buf_32 in buffer to the kd_buf_64 in cursor
       kd_buf_32* kd_buf = (kd_buf_32*)kd_buf;
-      kevent = &cursor->kd_buf;  // on 32-bit, we need copy the data from kd_buf_32 in buffer to the
-                                 // kd_buf_64 in cursor
+      kevent = &cursor->kd_buf;
       kevent->timestamp = kd_buf->timestamp & KPERFDATA_TIMESTAMP_MASK;
       kevent->arg1 = (uint64_t)kd_buf->arg1;
       kevent->arg2 = (uint64_t)kd_buf->arg2;
@@ -264,9 +263,9 @@ static kd_buf* kpdecode_cursor_next_kevent(kpdecode_cursor* cursor) {
       kevent->debugid = kd_buf->debugid;
       kevent->cpuid = (uint32_t)((kd_buf->timestamp & KPERFDATA_CPU_MASK) >> KPERFDATA_CPU_SHIFT);
     } else {  // is64Bit
+      // on 64-bit, we just return the pointer to kd_buf in buffer, no need to copy it
       kd_buf_64* kd_buf = (kd_buf_64*)kd_buf;
-      kevent =
-          kd_buf;  // on 64-bit, we just return the pointer to kd_buf in buffer, no need to copy it
+      kevent = kd_buf;
     }
 
     char* next_kd_buf_ptr = cur_kd_buf_ptr + cursor->size_of_kd_buf;
@@ -274,28 +273,182 @@ static kd_buf* kpdecode_cursor_next_kevent(kpdecode_cursor* cursor) {
     if (next_kd_buf_ptr >= end_of_buffer) {
       cursor->cur_kd_buf_ptr = NULL;  // EOF
     } else {
-      cursor->cur_kd_buf_ptr =
-          cur_kd_buf_ptr + cursor->size_of_kd_buf;  // step to the next item in the kd_buf
+      cursor->cur_kd_buf_ptr = next_kd_buf_ptr;  // step to the next item in the kd_buf
     }
 
-    return kevent;  // return this kd_buf as a kevent
-  }                 // endif (cur_kd_buf_ptr != NULL)
+    return kevent;
+  }  // endif (cur_kd_buf_ptr != NULL)
   return NULL;
 }
 
-long kpdecode_cursor_next_record(kpdecode_cursor* cursor, kpdecode_record* record) {
+long kpdecode_cursor_next_record(kpdecode_cursor* cursor, kpdecode_record** next_record) {
+  int ret;
   kd_buf* kevent = NULL;
   while (!record_ready(cursor)) {
     kevent = kpdecode_cursor_next_kevent(cursor);
     if (kevent == NULL) {
       break;
     }
+
+    // Got a new kevent
     cursor->kevent_count += 1;
 
-    // TODO:
-  }
+    kpdecode_record* record =
+        (kpdecode_record*)calloc(1, sizeof(kpdecode_cursor));  // malloc(sizeof(kpdecode_record));
+    if (!record) {
+      return KPERFDATA_RET_OOM;
+    }
+    record->ready = false;
+    uint64_t timestamp = kevent->timestamp;
+    record->timestamp = timestamp;
+    record->total_size_of_kevents = cursor->size_of_kd_buf * cursor->kevent_count;
 
-  return -1;
+    uint32_t cpuid = kevent->cpuid;
+    if (cpuid >= KPERFDATA_MAX_CPUS) {
+      record->flags = 0x8000000000000017;
+      record->kd_buf.debugid = kevent->debugid;
+      record->kd_buf.args[0] = kevent->arg1;
+      record->kd_buf.args[1] = kevent->arg2;
+      record->kd_buf.args[2] = kevent->arg3;
+      record->kd_buf.args[3] = kevent->arg4;
+      record->tid = kevent->arg5;
+      record->cpuid = cpuid;
+      record->ready = true;
+      // append a new record to the end of the linked list
+      KPERFDATA_LINKED_LIST_APPEND_ITEM(cursor, record);
+
+      ret = 0;
+      goto SWITCH_CTRL;  // continue;
+    }  // endif (cpuid >= KPERFDATA_MAX_CPUS)
+
+    if (timestamp) {
+      if (kevent->debugid != KPERFDATA_DEBUGID(KPERFDATA_DBG_PERF, 153, 0, 0)) {
+        uint64_t kevent_count_pre_count = cursor->unknown_ac8[cpuid] + 1;
+        cursor->unknown_ac8[cpuid] = kevent_count_pre_count;
+        if (kevent_count_pre_count > cursor->unknown_cc8) {
+          cursor->unknown_cc8 = kevent_count_pre_count;
+        }
+      }
+    }
+
+    uint64_t flags;
+    uint32_t debugid;
+    if (cursor->unknown_option != 0) {
+      flags = 0x0000000000000017;
+      record->flags = flags;
+      debugid = kevent->debugid;
+      record->kd_buf.debugid = debugid;
+      record->kd_buf.args[0] = kevent->arg1;
+      record->kd_buf.args[1] = kevent->arg2;
+      record->kd_buf.args[2] = kevent->arg3;
+      record->kd_buf.args[3] = kevent->arg4;
+      record->tid = kevent->arg5;
+      record->cpuid = cpuid;
+    } else {
+      flags = 0x0000000000000000;
+      debugid = kevent->debugid;
+    }
+
+    // the begin of the switch statement:
+
+    if (debugid == KPERFDATA_TRACE_LOST_EVENTS) {
+      // clang-format off
+      // |---------------------------------------------------------------------------------------------|
+      // | Class: DBG_TRACE | SubClass: DBG_TRACE_INFO | Code: TRACE_LOST_EVENTS | Func: DBG_FUNC_NONE |
+      // | Arg1: -          | Arg2: -                  | Arg3: -                 | Arg4: -             |
+      // |---------------------------------------------------------------------------------------------|
+      // clang-format on
+      //
+      // Emit a lost events tracepoint to indicate that previous events were lost -- the thread map
+      // cannot be trusted.
+      record->flags = flags | 0x0000000000010003;
+      record->cpuid = kevent->cpuid;
+      record->timestamp = timestamp;
+      record->unknown_field20.unknown_field1 = cursor->unknown_8c8[cpuid];
+      record->ready = true;
+      cursor->unknown_8c8[cpuid] = timestamp;
+      kpdecode_record* cpu_record = cursor->unknown_c8[cpuid];
+      if (cpu_record != NULL) {
+        cpu_record->flags |= 0x8000000000000000;
+        cpu_record->ready = true;
+        cursor->unknown_c8[cpuid] = NULL;
+      }
+
+      kpdecode_record* cpu_record1 = cursor->unknown_2c8[cpuid];
+      if (cpu_record1 != NULL) {
+        cpu_record->flags |= 0x8000000000000000;
+        cpu_record->ready = true;
+        cursor->unknown_2c8[cpuid] = NULL;
+
+        cursor->unknown_4c8[cpuid]->flags |= 0x8000000000000000;
+        cursor->unknown_2c8[cpuid] = NULL;
+        ret = 0;  // continue
+        goto NEXT_RECORD;
+      }
+      ret = 0;
+      goto SWITCH_CTRL;
+    }
+
+    cursor->unknown_8c8[cpuid] = timestamp;
+    if (debugid == KPERFDATA_PERF_GEN_EVENT_START) {
+      // clang-format off
+      // |---------------------------------------------------------------------------------------------|
+      // | Class: PERF_GENERIC | SubClass: PERF_GENERIC | Code: PERF_GEN_EVENT | Func: DBG_FUNC_START  |
+      // | Arg1: sample_what   | Arg2: actionid         | Arg3: userdata       | Arg4: sample_flags    |
+      // |---------------------------------------------------------------------------------------------|
+      // clang-format on
+      //
+      // Before calling kperf_sample_internal() and kperf_sample_user_internal()
+      if (cursor->unknown_c8[cpuid] != NULL) {
+        ret = 2;  // return
+        goto NEXT_RECORD;
+      }
+      cursor->unknown_c8[cpuid] = record;  // save the first record of this cpu
+      record->flags = flags | 0x0000000000002007;
+      record->cpuid = kevent->cpuid;
+      record->kperf_sample_args.actionid = kevent->arg2;
+      record->tid = kevent->arg5;
+      ret = 0;  // continue
+      goto NEXT_RECORD;
+    }
+
+    // TODO: other cases
+
+  NEXT_RECORD:  // LABEL_113:
+    if (record->flags != 0) {
+      if (cursor->unknown_cc8 < KPERFDATA_MAX_RECORDS_PRE_CPU) {
+        record->flags |= 0x0000000000020000;
+      }
+
+      KPERFDATA_LINKED_LIST_APPEND_ITEM(cursor, record);
+    } else {
+      kpdecode_record_free(record);
+    }
+
+    // TODO: use a `switch` statement to get rid of the ugly `goto`.
+  SWITCH_CTRL:  // LABEL_122:
+    if (ret == 2) {
+      return ret;
+    } else if (ret == 1) {
+      break;
+    } else {  // ret == 0
+      continue;
+    }
+  }  // end while
+
+  if (record_ready(cursor)) {
+    // pop the first record of the linked list
+    kpdecode_record* first_record = cursor->kpdeocde_record_head;
+    *next_record = first_record;
+    --cursor->kpdecode_record_count;
+    cursor->kpdeocde_record_head = (kpdecode_record*)first_record->next;
+    if (cursor->kpdecode_record_tail == first_record) {
+      cursor->kpdecode_record_tail = NULL;
+    }
+    first_record->next = NULL;
+    return KPERFDATA_RET_OK;
+  }
+  return KPERFDATA_RET_NOT_READY;
 }
 
 KPERFDATA_END_CPP_NAMESPACE

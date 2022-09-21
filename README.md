@@ -21,7 +21,7 @@ kpdecode_cursor_setchunk(cursor, buffer, buffer_size);
 
 while (1) {
   kpdecode_record* record = NULL;
-  kpdecode_cursor_next_record(cursor, record);
+  kpdecode_cursor_next_record(cursor, &record);
   if (record == NULL) {
     break;
   }

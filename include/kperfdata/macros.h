@@ -39,8 +39,11 @@
 
 #define KPERFDATA_RET_OK 0
 #define KPERFDATA_RET_FAIL -1
+#define KPERFDATA_RET_NOT_READY 1
+#define KPERFDATA_RET_OOM 2
 
 #define KPERFDATA_MAX_RECORDS 10000
+#define KPERFDATA_MAX_RECORDS_PRE_CPU 2048
 
 #define KPERFDATA_SIZEOF_RAW_HEADER_V1 0x18
 #define KPERFDATA_SIZEOF_RAW_HEADER_V2 0x120
@@ -66,8 +69,28 @@
   (((unsigned)((class) & 0xff) << 24) | ((unsigned)((subclass)&0xff) << 16) | \
    ((unsigned)((code)&0x3fff) << 2) | func)
 
+#define KPERFDATA_DBG_PERF 37
+#define KPERFDATA_DBG_TRACE 7
+
+#define KPERFDATA_TRACE_LOST_EVENTS KPERFDATA_DEBUGID(KPERFDATA_DBG_TRACE, 2, 2, 0)
+#define KPERFDATA_PERF_GEN_EVENT_START KPERFDATA_DEBUGID(KPERFDATA_DBG_PERF, 0, 0, 1)
+
 #define KPERFDATA_TIMESTAMP_MASK 0x00ffffffffffffffULL
 #define KPERFDATA_CPU_MASK 0xff00000000000000ULL
 #define KPERFDATA_CPU_SHIFT 56
+
+#define KPERFDATA_MAX_CPUS 64
+
+#define KPERFDATA_LINKED_LIST_APPEND_ITEM(cursor, record)      \
+  ++cursor->kpdecode_record_count;                             \
+  record->next = NULL;                                         \
+  kpdecode_record* last_record = cursor->kpdecode_record_tail; \
+  if (last_record != NULL) {                                   \
+    last_record->next = (struct kpdecode_record*)record;       \
+  }                                                            \
+  cursor->kpdecode_record_tail = record;                       \
+  if (cursor->kpdeocde_record_head == NULL) {                  \
+    cursor->kpdeocde_record_head = record;                     \
+  }
 
 #endif  // KPERFDATA_INCLUDE_MACROS_H_
